@@ -49,7 +49,7 @@
   };
 
   function showGeoJSON() {
-    $.get('/data/facilities',
+    $.get('https://s3-ap-northeast-1.amazonaws.com/geo-sample-data/cultural_faculties.geojson',
         function (data) {
           if (typeof data !== 'object') {
             data = JSON.parse(data);
