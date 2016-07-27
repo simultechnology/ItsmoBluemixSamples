@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="//api.its-mo.com/cgi/loader.cgi?key=***************&ver=2.0&api=zdcmap.js,control.js,shape.js,geo.js,imglayer.js,search.js,areamap.js,railwaymap.js,submap.js,usercontrol.js,userwidget.js" type="text/javascript"></script>
+  <script src="//support.e-map.ne.jp/manuals/V20/apisample/geojson/geojson-1.0.js" type="text/javascript"></script>
+  <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+  <title></title>
+</head>
+<style type="text/css">
+  body {
+    margin: 0;
+  }
+  #ZMap {
+    width: 100%;
+    height: 100%;
+    position:absolute;
+  }
+  #prefs {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+  }
+  .label {
+    background-color: #000000;
+    font-size: 0.8em;
+    color: #ffffff;
+    text-align: center;
+  }
+</style>
+<body onload="load();">
+<div id="ZMap"></div>
+<select id="prefs"></select>
+<script>
+  var map, prefsMap = {}, initPrefCode = '40', widgetList = [], isSearching = false;
+
+  function load() {
+    map = new ZDC.Map(
+        document.getElementById('ZMap'), {
+          zoom: 6
+        }
+    );
+
+    addControl();
+
+    ZDC.Search.getAddrListByAddrCode({}, function(code, res) {
+      var items = res.item, item, strBuf = '';
+      for (var i = 0, l = items.length; i < l; i++) {
+        item = items[i];
+        prefsMap[item.code] = item.latlon;
+        strBuf += ('<option value="' + item.code +'">' + item.text + '</option>');
+      }
+      $('#prefs').append(strBuf);
+      $('#prefs').val(initPrefCode);
+      getPolylinesByPrefCd(initPrefCode);
+    });
+
+    $('#prefs').on('change', function() {
+      var code = $(this).val();
+      getPolylinesByPrefCd(code);
+    })
+
+  }
+
+  function getPolylinesByPrefCd(code) {
+    if (isSearching) {
+      return
+    }
+    isSearching = true;
+    var polyline;
+    for (var i = 0, l = widgetList.length; i < l; i++) {
+      polyline = widgetList[i];
+      map.removeWidget(polyline);
+    }
+    widgetList = [];
+
+    map.moveLatLon(prefsMap[code]);
+    ZDC.Search.getAddrListByAddrCode({
+      addrcode: code
+    }, showResult)
+  }
+
+
+  function showResult(code, res) {
+    var items = res.item, item, addrcdBuf = '';
+    for (var i = 0, l = items.length; i < l; i++) {
+      item = items[i];
+      showAddrLabel(item.text, item.latlon);
+      addrcdBuf += item.code;
+      if (i < l - 1) {
+        addrcdBuf += ',';
+      }
+    }
+
+    ZDC.Search.getAddrPolygon({
+      addrcd: addrcdBuf
+    }, visualize)
+  }
+
+  function showAddrLabel(name, latlon) {
+    var widgetlabel =
+    {
+      html: '<div class="label">' + name + '</div>'
+    };
+    var widget = new ZDC.UserWidget(latlon, widgetlabel);
+    map.addWidget(widget);
+    widgetList.push(widget);
+    widget.open();
+  }
+
+  function visualize(code, res) {
+    var items = res.item, item, geom;
+    for (var i = 0, l = items.length; i < l; i++) {
+      item = items[i];
+      geom = item.geom;
+      showGeoJSON(geom);
+    }
+
+  }
+
+  function showGeoJSON(geom) {
+    new ZDC.GeoJSON(map, geom, {
+      polylineOptions: {
+        fillColor: generateRandomColor(),
+        fillOpacity: 0.4
+      },
+      func: function(res) {
+        var mwidgets;
+        for (var i = 0, l = res.length; i < l; i++) {
+          mwidgets = res[i].mwidgets;
+          widgetList = widgetList.concat(mwidgets);
+        }
+        isSearching = false;
+      }
+    });
+  }
+
+  function generateRandomColor() {
+    var res = '#', tmp;
+    for (var i = 0; i < 3; i++) {
+      tmp = (Math.floor(Math.random() * 255)).toString(16);
+      if (tmp.length === 1) {
+        tmp = '0' + tmp;
+      }
+      res += tmp;
+    }
+    return res;
+  }
+
+  function addControl() {
+    var widget_normal = new ZDC.Control(
+        {
+          pos: {
+            top: 10,
+            left: 10
+          },
+          type: ZDC.CTRL_TYPE_NORMAL
+        }
+    );
+    map.addWidget(widget_normal);
+  }
+
+</script>
+</body>
+</html>
